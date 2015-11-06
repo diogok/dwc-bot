@@ -93,8 +93,8 @@
        (occ f))))
       :transaction? false))
 
-(defn run
-  [] 
+(defn -main [ & args ] 
+   (connect)
    (let [to-insert (chan 1024)
          links (map :dwca (all-resources))]
      (go
