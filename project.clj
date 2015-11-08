@@ -10,7 +10,7 @@
                  [org.clojure/data.json "0.2.5"]
                  [org.clojure/java.jdbc "0.4.1"]
                  [org.xerial/sqlite-jdbc "3.8.11.1"]
-                 [dwc-io "0.0.45"]]
+                 [dwc-io "0.0.46"]]
   :profiles {:uberjar {:aot :all}
              :jar {:aot :all}
              :dev {:dependencies [[midje "1.6.3"]]
