@@ -5,6 +5,7 @@
   (:require [dwc-io.archive :as dwca]
             [dwc-io.validation :as valid]
             [dwc-io.fixes :as fixes])
+  (:require [batcher.core :refer :all])
   (:require [clojure.core.async :refer [<! <!! >! >!! go go-loop chan close!]])
   (:require [clojure.java.io :as io]))
 
@@ -79,39 +80,27 @@
 
 (defn fix 
   [occ] (-> occ fixes/fix-keys fixes/fix-fields fixes/fix-id
-            (dissoc :order :references :group)))
+          (dissoc :order :references :group)))
 
-(defn insert
-  [conn occ] 
-  (execute! conn
-   (apply vector
-    (str "INSERT INTO occurrences(" (apply str (interpose "," fields)) ") "
-         "VALUES (" (apply str (interpose " , " (for [i (range 0 (count fields) )] "?"))) ")")
-    (for [f fields]
-     (if (nil? (occ f))
-       ""
-       (occ f))))
-      :transaction? false))
+(defn bulk-insert
+  [occs]
+   (with-db-connection [c conn]
+     (println "Got")
+     (execute! c ["PRAGMA synchronous = OFF"])
+     (query    c ["PRAGMA journal_mode = OFF"])
+     (time
+     (apply insert! c :occurrences (map fix occs))
+     )
+     ))
 
 (defn -main [ & args ] 
    (connect)
-   (let [to-insert (chan 1024)
-         links (map :dwca (all-resources))]
-     (go
-       (with-db-connection [c conn ]
-         (execute! c ["PRAGMA synchronous = OFF"])
-         (query  c ["PRAGMA journal_mode = OFF"])
-         (loop [occ (<! to-insert)]
-           (if (not (nil? occ))
-             (do 
-               #_(insert conn (fix occ))
-               (insert! conn :occurrences (fix occ) :transaction? false)
-               (recur (<! to-insert))
-               )))))
+   (let [batch (batcher 2048 0 bulk-insert)
+         links (map :dwca (take 2 (all-resources)))]
      (doseq [link links]
        (do
          (println link)
          (dwca/read-archive-stream link
-          (partial >!! to-insert))))
-     (close! to-insert)))
+          (partial >!! batch))))
+     (close! batch)))
 
