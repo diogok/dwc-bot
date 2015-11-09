@@ -79,7 +79,7 @@
       (second match))))
 
 (defn fix 
-  [occ] (-> occ fixes/fix-keys fixes/fix-fields fixes/fix-id
+  [occ] (-> occ fixes/fix-fields fixes/fix-id
           (dissoc :order :references :group)))
 
 (defn bulk-insert
@@ -95,7 +95,7 @@
 
 (defn -main [ & args ] 
    (connect)
-   (let [batch (batcher 2048 0 bulk-insert)
+   (let [batch (batcher 1024 0 bulk-insert)
          links (map :dwca (take 2 (all-resources)))]
      (doseq [link links]
        (do
