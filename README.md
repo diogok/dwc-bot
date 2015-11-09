@@ -1,15 +1,23 @@
 # dwc-bot
 
+Import DarwinCore Archive occurrences from IPTs into SQLite with Fulltext search.
+
 ## Numbers
 
-Raw Aproximate numbers
+Final run in SQLite with Fulltext Search:
 
-1 Occurrences is circa 1KB
-A 5MB Dwc-A contains a 50MB CSV and 70k occurrences
-50MB CSV in CouchDB is 260MB
-50MB CSV in SQLite is 80MB (1.5x increase)
-50MB CSV in SQLite using FTS4 is 110MB (2.25x)
-SQLite FTS4 insert at close to 100kbs
+- 113 resources (circa 635MB zip)
+- 4902912 occurrences
+- 50 minutes
+- 8.7 GB
+- Instant name match query
+
+Concluding:
+
+- 1.8KB per occurrence
+- 1.600 occurrences per second
+- Almost 15x the size of the DarwinCore Zip
+- Almost 1.5x the size of the DarwinCore CSV
 
 ## Usage
 
