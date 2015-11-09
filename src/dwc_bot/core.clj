@@ -96,7 +96,7 @@
 (defn -main [ & args ] 
    (connect)
    (let [batch (batcher 1024 0 bulk-insert)
-         links (map :dwca (take 2 (all-resources)))]
+         links (map :dwca (all-resources))]
      (doseq [link links]
        (do
          (println link)
