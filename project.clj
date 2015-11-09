@@ -11,7 +11,7 @@
                  [org.clojure/java.jdbc "0.4.1"]
                  [org.xerial/sqlite-jdbc "3.8.11.1"]
                  [batcher "0.0.2"]
-                 [dwc-io "0.0.46"]]
+                 [dwc-io "0.0.49"]]
   :profiles {:uberjar {:aot :all}
              :jar {:aot :all}
              :dev {:dependencies [[midje "1.6.3"]]

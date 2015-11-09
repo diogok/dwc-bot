@@ -78,9 +78,13 @@
       "M" (* (Integer/valueOf (second match)) 1024 1024)
       (second match))))
 
-(defn fix 
-  [occ] (-> occ fixes/fix-fields fixes/fix-id
-          (dissoc :order :references :group)))
+(defn fix
+  [occ] 
+  (-> occ
+    fixes/-fix->
+    (dissoc :order)
+    (dissoc :references)
+    (dissoc :group)))
 
 (defn bulk-insert
   [occs]
@@ -89,14 +93,12 @@
      (execute! c ["PRAGMA synchronous = OFF"])
      (query    c ["PRAGMA journal_mode = OFF"])
      (time
-     (apply insert! c :occurrences (map fix occs))
-     )
-     ))
+     (apply insert! c :occurrences (map fix occs)))))
 
 (defn -main [ & args ] 
    (connect)
    (let [batch (batcher 1024 0 bulk-insert)
-         links (map :dwca (all-resources))]
+         links (filter dwca/occurrences? (map :dwca (all-resources)) )]
      (doseq [link links]
        (do
          (println link)
