@@ -7,9 +7,12 @@
             [dwc-io.fixes :as fixes])
   (:require [batcher.core :refer :all])
   (:require [clojure.core.async :refer [<! <!! >! >!! go go-loop chan close!]])
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io])
+  (:require [environ.core :refer (env)]))
 
 (declare conn)
+
+(def metafields ["identifier" "source" "hash"])
 
 (def fields
   (sort
@@ -18,27 +21,45 @@
        (distinct valid/all-fields))))
 
 (defn connect
-  [] 
-  (let [db-path   "data/db.db"
+  []
+  (let [db-path   (str (or (env "DATA_DIR") "data") "/dwc.db")
         db-file   (io/file db-path)
         db-folder (io/file (.getParent db-file))
         create    (not (.exists db-file))]
+      (println "Using" db-path)
       (if (not (.exists db-folder)) (.mkdir db-folder))
       (def conn {:classname "org.sqlite.JDBC" :subprotocol "sqlite" :subname (.getAbsolutePath db-file)})
       (if create
-        (execute! conn 
-          [(str "CREATE VIRTUAL TABLE occurrences USING fts4(" (apply str (interpose " , " fields)) ")")]))))
+        (do
+          (execute! conn 
+            [(str "CREATE VIRTUAL TABLE occurrences USING fts4(" (apply str (interpose " , " (apply conj fields metafields))) ")")])
+          (execute! conn
+            ["CREATE TABLE input (url)"])
+          (execute! conn
+            ["CREATE TABLE output (url)"])
+          ))))
+
+(defn put-source
+  [url] 
+   (let [url (if (.endsWith url "/") url (str url "/"))]
+     (insert! conn :input {:url url})))
+
+(defn rm-source
+  [url]
+  (delete! conn :input ["url=?" url])
+  (delete! conn :input ["url=?" (str url "/")]))
 
 (defn get-sources
   [] 
-   (with-open [reader (io/reader (io/resource "sources.txt"))]
-     (doall 
-       (map 
-         (fn [line]
-           (-> line
-               (.trim)
-               (str "rss.do")))
-         (line-seq reader)))))
+  (distinct
+    (map
+      (fn [row]
+        (-> row
+            :url
+            (.trim)
+            (str "/rss.do")
+            (.replace "//rss" "/rss")))
+      (query conn ["SELECT url FROM input;"]))))
 
 (defn get-tag-value
   [el tag] 
@@ -78,31 +99,76 @@
       "M" (* (Integer/valueOf (second match)) 1024 1024)
       (second match))))
 
+(defn metadata
+  [occ src] 
+  (assoc occ :identifier (str src "#" (:occurrenceID occ))
+             :source src
+             :hash (hash occ)))
+
+(defn now
+  [] (int (/ (System/currentTimeMillis) 1000)))
+
 (defn fix
-  [occ] 
+  [src occ] 
   (-> occ
     fixes/-fix->
     (dissoc :order)
     (dissoc :references)
-    (dissoc :group)))
+    (dissoc :group)
+    (metadata src)))
+
+(defn wat
+  [stuff] 
+  (println stuff)
+  stuff)
+
+(defn in-f
+  [f in]
+  (str  " "(name f) " in (" (apply str (interpose "," (map #(if (string? %) (str "\"" % "\"") %) (map f in)))) ") "))
 
 (defn bulk-insert
-  [occs]
-   (with-db-connection [c conn]
-     (println "Got")
-     (execute! c ["PRAGMA synchronous = OFF"])
-     (query    c ["PRAGMA journal_mode = OFF"])
-     (time
-     (apply insert! c :occurrences (map fix occs)))))
+  [src occs]
+   (with-db-connection [cc conn]
+     (println "Got" (count occs) "from" src)
+     (execute! cc ["PRAGMA synchronous = OFF"])
+     (query    cc ["PRAGMA journal_mode = WAL"])
+     (with-db-transaction [c cc]
+       (time
+         (let [occs (map (partial fix src) occs)
 
-(defn -main [ & args ] 
+               got-hash  (set (map :hash (query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash occs))])))
+               got-ids   (set (map :identifier (query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier occs))])) )
+
+               to-del-hash (filter #(not (nil? (got-hash (:hash %)))) occs)
+               to-del-ids (filter #(not (nil? (got-ids (:identifier %)))) occs)]
+           (if (not (empty? to-del-hash))
+             (delete! c :occurrences [(in-f :hash to-del-hash)]))
+           (if (not (empty? to-del-ids))
+             (delete! c :occurrences [(in-f :identifier to-del-hash)]))
+           (apply insert! c :occurrences occs))))))
+
+(defn search
+  [q] 
+  (map 
+    #(dissoc :hash)
+    (query conn ["SELECT * FROM occurrences WHERE occurrences MATCH ?" q])))
+
+(defn run
+  [source]
+  (println "->" source)
+   (let [wait  (chan 1)
+         batch (batcher {:time 0 
+                         :size 1024
+                         :fn (partial bulk-insert source)
+                         :end wait})]
+     (dwca/read-archive-stream source
+       (fn [occ] (>!! batch occ)))
+     (close! batch)
+     (<!! wait)))
+
+(defn start [ & args ] 
    (connect)
-   (let [batch (batcher 1024 0 bulk-insert)
-         links (filter dwca/occurrences? (map :dwca (all-resources)) )]
+   (let [links (take 1 (filter dwca/occurrences? (map :dwca (all-resources))))]
      (doseq [link links]
-       (do
-         (println link)
-         (dwca/read-archive-stream link
-          (partial >!! batch))))
-     (close! batch)))
+       (run link))))
 
