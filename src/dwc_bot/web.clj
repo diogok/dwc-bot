@@ -13,17 +13,18 @@
 (def routes
   {[:get "/"] 
      (fn [req]
-       {:some "thing"})
+       {:status 302 :headers {"Location" "/index.html"}})
    [:get "/search"]
-    (fn [req] nil)
+    (fn [req] 
+      (core/search (get (:query-params req) "q")))
    [:get "/input"
     (fn[req] (core/get-inputs))]
    [:post "/input"
-    (fn[req] nil)]
+    (fn[req] (core/put-input (:url (:body req))))]
    [:get "/output"
     (fn [req] (core/get-outputs))]
    [:post "/output"
-    (fn[req] nil)]
+    (fn[req] (core/put-output (:url (:body req))))]
   })
 
 (def handler
@@ -39,10 +40,13 @@
 (defn mid-json
   [handler]
   (fn [req]
-    (let [res (handler req)]
+    (let [req (if (= "application/json" (:content-type req)) (assoc req :body (read-str (slurp (:body req)) :key-fn keyword)) req)
+          res (handler req)]
       (if (not (nil? (:status res)))
-        (assoc res :body (write-str (:body res))
-                   :headers {"Content-Type" "application/json"})
+        (if (:body res)
+          (assoc res :body (write-str (:body res))
+                     :headers {"Content-Type" "application/json"})
+          res)
         {:status 200 :headers {"Content-Type" "application/json"} :body (write-str res)}))))
 
 (def app
@@ -56,7 +60,7 @@
   [join] 
   (let
     [host (or (env :host) "0.0.0.0")
-     port (or (env :port)"8080")
+     port (or (env :port) "8080")
      opts {:port (Integer/valueOf port) :host host :join? join}]
     (future (core/start))
     (println "Listening on" (str host ":" port))
