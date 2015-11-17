@@ -23,5 +23,5 @@
                  [environ "1.0.0"]]
   :profiles {:uberjar {:aot :all}
              :jar {:aot :all}
-             :dev {:dependencies [[midje "1.6.3"]]
-                   :plugins [[lein-midje "3.1.3"]]}})
+             :dev {:dependencies [[midje "1.8.2"]]
+                   :plugins [[lein-midje "3.2"]]}})
