@@ -39,17 +39,34 @@
             ["CREATE TABLE output (url)"])
           ))))
 
-(defn put-source
+(defn put-output
+  [url] 
+   (let [url (if (.endsWith url "/") url (str url "/"))]
+     (insert! conn :output {:url url})))
+
+(defn rm-output
+  [url]
+  (delete! conn :output ["url=?" url])
+  (delete! conn :output ["url=?" (str url "/")]))
+
+(defn get-outputs
+  [] 
+  (distinct
+    (map
+      :url
+      (query conn ["SELECT url FROM output;"]))))
+
+(defn put-input
   [url] 
    (let [url (if (.endsWith url "/") url (str url "/"))]
      (insert! conn :input {:url url})))
 
-(defn rm-source
+(defn rm-input
   [url]
   (delete! conn :input ["url=?" url])
   (delete! conn :input ["url=?" (str url "/")]))
 
-(defn get-sources
+(defn get-inputs
   [] 
   (distinct
     (map
@@ -88,7 +105,7 @@
       (map item-to-resource))))
 
 (defn all-resources
-  [] (flatten (map get-resources (get-sources))))
+  [] (flatten (map get-resources (get-inputs))))
 
 (defn estimate
   [resource] 
@@ -150,7 +167,7 @@
 (defn search
   [q] 
   (map 
-    #(dissoc :hash)
+    #(dissoc % :hash)
     (query conn ["SELECT * FROM occurrences WHERE occurrences MATCH ?" q])))
 
 (defn run
@@ -168,7 +185,11 @@
 
 (defn start [ & args ] 
    (connect)
-   (let [links (take 1 (filter dwca/occurrences? (map :dwca (all-resources))))]
+   (let [recs (all-resources)
+         _ (println recs)
+         dwcas (take 1 (reverse (take 3 (map :dwca recs))))
+         _ (println dwcas)
+         links (filter dwca/occurrences? dwcas)]
      (doseq [link links]
        (run link))))
 
