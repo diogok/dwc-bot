@@ -134,8 +134,12 @@
 
 (defn put-resources
   [recs] 
-   (delete! conn :resources [(in-f :link recs)])
-   (apply insert! conn :resources recs))
+ (with-db-connection [cc conn]
+   (execute! cc ["PRAGMA synchronous = OFF"])
+   (query    cc ["PRAGMA journal_mode = WAL"])
+   (with-db-transaction [c cc]
+     (delete! c :resources [(in-f :link recs)])
+     (apply insert! c :resources recs))))
 
 (defn estimate
   [resource] 
@@ -199,21 +203,33 @@
 (defn run
   [source]
    (println "->" source)
-   (let [wait  (chan 1)
-         batch (batcher {:time 0 
-                         :size 1024
-                         :fn (partial bulk-insert source)
-                         :end wait})]
+   (let [waiter (chan 1)
+         batch  (batcher {:size 1024
+                          :fn (partial bulk-insert source)
+                          :end waiter})]
      (dwca/read-archive-stream source
        (fn [occ] (>!! batch occ)))
      (close! batch)
-     (<!! wait)))
+     (<!! waiter)))
 
 (defn start [ & args ] 
    (connect)
-   (let [recs  (changed-resources)
-         dwcas (take 1 (reverse (take 3 (map :dwca recs))))
-         links (filter dwca/occurrences? dwcas)]
-     (doseq [link links]
-       (run link))))
+   (let [status (atom :idle)]
+     (future
+       (while
+         (and (not (nil? @status)) (not (= :stop @status)))
+         (do
+           (println "Bot Active")
+           (swap! status (fn [_] :active))
+           (let [recs  (changed-resources)
+                 dwcas (map :dwca recs)
+                 links (filter dwca/occurrences? dwcas)]
+             (println "Got" (count links) "resources")
+             (if (not (empty? recs)) (put-resources recs))
+             (doseq [link links]
+               (if (= :active @status)
+                 (run link))))
+           (swap! status (fn [_] :idle))
+           (Thread/sleep (* 30 60 1000)))))
+     status))
 

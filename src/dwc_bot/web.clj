@@ -36,6 +36,7 @@
         {:status 404 :body {:error "not found"}}))))
 
 (def server (atom nil))
+(def bot    (atom nil))
 
 (defn mid-json
   [handler]
@@ -57,21 +58,25 @@
     (wrap-resource "public")))
 
 (defn start
-  [join] 
+  ([] (start false))
+  ([join] 
   (let
     [host (or (env :host) "0.0.0.0")
      port (or (env :port) "8080")
      opts {:port (Integer/valueOf port) :host host :join? join}]
-    (future (core/start))
     (println "Listening on" (str host ":" port))
-    (let [s (run-jetty #'app opts)]
-      (swap! server (fn [_] s)))
-    @server))
+    (let [s (run-jetty #'app opts)
+          b (core/start)]
+      (swap! server (fn [_] s))
+      (swap! bot (fn [_] b)))
+    [@server @bot])))
 
 (defn stop
   [] 
   (.stop @server)
-  (swap! server (fn [_] nil)))
+  (swap! @bot (fn [_] :stop))
+  (swap! server (fn [_] nil))
+  (swap! bot (fn [_] nil)))
 
 (defn -main
   [ & args] 
