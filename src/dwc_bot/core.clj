@@ -5,6 +5,8 @@
   (:require [dwc-io.archive :as dwca]
             [dwc-io.validation :as valid]
             [dwc-io.fixes :as fixes])
+  (:require [clj-time.core :as t]
+            [clj-time.format :as f])
   (:require [batcher.core :refer :all])
   (:require [clojure.core.async :refer [<! <!! >! >!! go go-loop chan close!]])
   (:require [clojure.java.io :as io])
@@ -19,6 +21,10 @@
     (filter 
       #(not (some #{"order" "references" "group"} [%]))
        (distinct valid/all-fields))))
+
+(defn in-f
+  [f in]
+  (str  " "(name f) " in (" (apply str (interpose "," (map #(if (string? %) (str "\"" % "\"") %) (map f in)))) ") "))
 
 (defn connect
   []
@@ -35,6 +41,8 @@
             [(str "CREATE VIRTUAL TABLE occurrences USING fts4(" (apply str (interpose " , " (apply conj fields metafields))) ")")])
           (execute! conn
             ["CREATE TABLE input (url)"])
+          (execute! conn
+            ["CREATE TABLE resources (dwca,link,pub,title)"])
           (execute! conn
             ["CREATE TABLE output (url)"])
           ))))
@@ -104,8 +112,30 @@
       (filter #(= (:tag %) :item))
       (map item-to-resource))))
 
+(defn parse-date
+  [date]
+  (f/parse (f/with-locale (f/formatters :rfc822) (java.util.Locale. "en")) date))
+
 (defn all-resources
   [] (flatten (map get-resources (get-inputs))))
+
+(defn changed-resources
+  [] 
+   (let [on-db (reduce (fn [recs rec] (assoc recs (:link rec) rec)) {} (query conn ["SELECT * FROM resources"]))
+         all-recs (all-resources)]
+     (filter 
+       (fn [rec]
+           (if-let [db-rec (on-db (:link rec))]
+             (let [db-time (parse-date (:pub db-rec))
+                   rec-time (parse-date (:pub rec))]
+               (t/after? rec-time db-time))
+             true))
+       all-recs)))
+
+(defn put-resources
+  [recs] 
+   (delete! conn :resources [(in-f :link recs)])
+   (apply insert! conn :resources recs))
 
 (defn estimate
   [resource] 
@@ -139,10 +169,6 @@
   (println stuff)
   stuff)
 
-(defn in-f
-  [f in]
-  (str  " "(name f) " in (" (apply str (interpose "," (map #(if (string? %) (str "\"" % "\"") %) (map f in)))) ") "))
-
 (defn bulk-insert
   [src occs]
    (with-db-connection [cc conn]
@@ -172,7 +198,7 @@
 
 (defn run
   [source]
-  (println "->" source)
+   (println "->" source)
    (let [wait  (chan 1)
          batch (batcher {:time 0 
                          :size 1024
@@ -185,10 +211,8 @@
 
 (defn start [ & args ] 
    (connect)
-   (let [recs (all-resources)
-         _ (println recs)
+   (let [recs  (changed-resources)
          dwcas (take 1 (reverse (take 3 (map :dwca recs))))
-         _ (println dwcas)
          links (filter dwca/occurrences? dwcas)]
      (doseq [link links]
        (run link))))

@@ -13,6 +13,8 @@
                  [org.clojure/java.jdbc "0.4.1"]
                  [org.xerial/sqlite-jdbc "3.8.11.1"]
 
+                 [clj-time "0.11.0"]
+
                  [batcher "0.0.4"]
                  [dwc-io "0.0.50"]
 
