@@ -14,7 +14,7 @@
 
 (declare conn)
 
-(def metafields ["identifier" "source" "hash"])
+(def metafields ["identifier" "source" "hash" "timestamp"])
 
 (def fields
   (sort
@@ -150,23 +150,29 @@
       "M" (* (Integer/valueOf (second match)) 1024 1024)
       (second match))))
 
-(defn metadata
-  [occ src] 
-  (assoc occ :identifier (str src "#" (:occurrenceID occ))
-             :source src
-             :hash (hash occ)))
-
 (defn now
   [] (int (/ (System/currentTimeMillis) 1000)))
 
+(defn hashe
+  [occ] 
+   (assoc occ :hash (String/valueOf (hash occ))))
+
+(defn metadata
+  [occ src pre-hash] 
+  (assoc occ :identifier (str src "#" (:occurrenceID occ))
+             :timestamp (now)
+             :hash pre-hash
+             :source src))
+
 (defn fix
   [src occ] 
-  (-> occ
-    fixes/-fix->
-    (dissoc :order)
-    (dissoc :references)
-    (dissoc :group)
-    (metadata src)))
+  (let [pre-hash (:hash occ)]
+    (-> occ
+      (fixes/-fix->)
+      (metadata src pre-hash)
+      (dissoc :order)
+      (dissoc :references)
+      (dissoc :group))))
 
 (defn wat
   [stuff] 
@@ -181,30 +187,34 @@
      (query    cc ["PRAGMA journal_mode = WAL"])
      (with-db-transaction [c cc]
        (time
-         (let [occs (map (partial fix src) occs)
+         (let [occs (map hashe occs)
 
-               got-hash  (set (map :hash (query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash occs))])))
-               got-ids   (set (map :identifier (query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier occs))])) )
+               got-hash (set (map :hash (query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash occs))])))
 
-               to-del-hash (filter #(not (nil? (got-hash (:hash %)))) occs)
-               to-del-ids (filter #(not (nil? (got-ids (:identifier %)))) occs)]
-           (if (not (empty? to-del-hash))
-             (delete! c :occurrences [(in-f :hash to-del-hash)]))
+               new-occs (filter (fn [o] (nil? (got-hash (:hash o)))) occs)
+               new-occs (map (partial fix src) new-occs)
+
+               got-ids  (set (map :identifier (query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier new-occs))])))
+
+               to-del-ids (filter (fn [o] (not (nil? (got-ids (:identifier o))))) new-occs)]
+           (println (count got-hash) "not changed," (count to-del-ids) "changed and" (- (count new-occs) (count to-del-ids)) "new.")
            (if (not (empty? to-del-ids))
-             (delete! c :occurrences [(in-f :identifier to-del-hash)]))
-           (apply insert! c :occurrences occs))))))
+             (delete! c :occurrences [(in-f :identifier to-del-ids)]))
+           (if (not (empty? new-occs))
+             (apply insert! c :occurrences new-occs)))))))
 
 (defn search
   [q] 
   (map 
-    #(dissoc % :hash)
+    fixes/-fix->
     (query conn ["SELECT * FROM occurrences WHERE occurrences MATCH ?" q])))
 
 (defn run
   [source]
    (println "->" source)
    (let [waiter (chan 1)
-         batch  (batcher {:size 1024
+         batch  (batcher {:time 0
+                          :size 1024
                           :fn (partial bulk-insert source)
                           :end waiter})]
      (dwca/read-archive-stream source
