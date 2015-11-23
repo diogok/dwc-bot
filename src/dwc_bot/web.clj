@@ -31,6 +31,7 @@
   (fn [req] 
     (let [uri    (:uri req)
           method (:request-method req)]
+      (println method uri)
       (if-let [hand (get routes [method uri])]
         (hand req)
         {:status 404 :body {:error "not found"}}))))
@@ -62,11 +63,11 @@
   ([join] 
   (let
     [host (or (env :host) "0.0.0.0")
-     port (or (env :port) "8080")
+     port (or (env :port) "8383")
      opts {:port (Integer/valueOf port) :host host :join? join}]
     (println "Listening on" (str host ":" port))
-    (let [s (run-jetty #'app opts)
-          b (core/start)]
+    (let [b (core/start)
+          s (run-jetty #'app opts)]
       (swap! server (fn [_] s))
       (swap! bot (fn [_] b)))
     [@server @bot])))
