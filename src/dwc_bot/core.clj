@@ -22,9 +22,16 @@
       #(not (some #{"order" "references" "group"} [%]))
        (distinct valid/all-fields))))
 
+(defn in-f-0
+  [f in]
+  (str  " " (name f) " in (" (apply str (interpose "," (map #(if (string? %) (str "\"" % "\"") %) (map f in)))) ") "))
+
 (defn in-f
   [f in]
-  (str  " "(name f) " in (" (apply str (interpose "," (map #(if (string? %) (str "\"" % "\"") %) (map f in)))) ") "))
+  (str " " (name f) " MATCH '"
+    (apply str
+      (interpose " OR " (map f in)))
+       "'"))
 
 (defn connect
   []
@@ -189,12 +196,24 @@
        (time
          (let [occs (map hashe occs)
 
-               got-hash (set (map :hash (query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash occs))])))
+               got-hash (set (map :hash 
+                              (flatten
+                                (map
+                                #(query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash %))])
+                                  (partition-all 10 occs)))))
 
                new-occs (filter (fn [o] (nil? (got-hash (:hash o)))) occs)
                new-occs (map (partial fix src) new-occs)
 
-               got-ids  (set (map :identifier (query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier new-occs))])))
+               got-ids  (set (map :identifier 
+                                  (flatten
+                                  (map
+                                  #(query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier %))])
+                                    (partition-all 10 new-occs)
+                                  )
+                                  )
+                                  ))
+
 
                to-del-ids (filter (fn [o] (not (nil? (got-ids (:identifier o))))) new-occs)]
            (println (count got-hash) "not changed," (count to-del-ids) "changed and" (- (count new-occs) (count to-del-ids)) "new.")
