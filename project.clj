@@ -1,5 +1,5 @@
-(defproject dwc-bot "0.0.1-SNAPSHOT"
-  :description "Some description"
+(defproject dwc-bot "0.0.1"
+  :description "Eat DarwinCore Archives"
   :url "http://github.com/diogok/dwc-bot"
   :license {:name "MIT"}
   :main dwc-bot.web
