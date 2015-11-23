@@ -16,6 +16,13 @@
 
 (def metafields ["identifier" "source" "hash" "timestamp"])
 
+(def base-inputs
+  [
+    "http://ipt.jbrj.gov.br/jbrj/"
+    "http://ipt.jbrj.gov.br/reflora/"
+    "http://ipt1.cria.org.br/ipt/"
+   ])
+
 (def fields
   (sort
     (filter 
@@ -35,7 +42,7 @@
 
 (defn connect
   []
-  (let [db-path   (str (or (env "DATA_DIR") "data") "/dwc.db")
+  (let [db-path   (str (or (env :data-dir) "data") "/dwc.db")
         db-file   (io/file db-path)
         db-folder (io/file (.getParent db-file))
         create    (not (.exists db-file))]
@@ -85,13 +92,12 @@
   [] 
   (distinct
     (map
-      (fn [row]
-        (-> row
-            :url
+      (fn [url]
+        (-> url 
             (.trim)
             (str "/rss.do")
             (.replace "//rss" "/rss")))
-      (query conn ["SELECT url FROM input;"]))))
+      (query conn ["SELECT url FROM input;"] :row-fn :url))))
 
 (defn get-tag-value
   [el tag] 
@@ -166,7 +172,7 @@
 
 (defn metadata
   [occ src pre-hash] 
-  (assoc occ :identifier (str src "#" (:occurrenceID occ))
+  (assoc occ :identifier (hash (str src "#" (:occurrenceID occ)))
              :timestamp (now)
              :hash pre-hash
              :source src))
@@ -196,11 +202,11 @@
        (time
          (let [occs (map hashe occs)
 
-               got-hash   (set 
-                            (flatten
-                              (map
+               got-hash  (set 
+                           (flatten
+                             (map
                               #(query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash %))] :row-fn :hash)
-                                (partition-all 10 occs))))
+                              (partition-all 10 occs))))
 
                new-occs (filter (fn [o] (nil? (got-hash (:hash o)))) occs)
                new-occs (map (partial fix src) new-occs)
@@ -208,9 +214,8 @@
                got-ids  (set 
                           (flatten
                             (map
-                              #(query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :occurrenceID %))] :row-fn :identifier)
-                              (partition-all 10 new-occs))))
-
+                              #(query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier %))] :row-fn :identifier)
+                              (partition-all 100 new-occs))))
 
                to-del-ids (filter (fn [o] (not (nil? (got-ids (:identifier o))))) new-occs)]
            (println (count got-hash) "not changed," (count to-del-ids) "changed and" (- (count new-occs) (count to-del-ids)) "new.")
@@ -230,7 +235,7 @@
    (println "->" source)
    (let [waiter (chan 1)
          batch  (batcher {:time 0
-                          :size 1024
+                          :size (* 1 1024)
                           :fn (partial bulk-insert source)
                           :end waiter})]
      (dwca/read-archive-stream source
@@ -240,6 +245,8 @@
 
 (defn start [ & args ] 
    (connect)
+   (doseq [url base-inputs]
+     (put-input url))
    (let [status (atom :idle)]
      (future
        (while
