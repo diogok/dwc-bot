@@ -196,23 +196,20 @@
        (time
          (let [occs (map hashe occs)
 
-               got-hash (set (map :hash 
-                              (flatten
-                                (map
-                                #(query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash %))])
-                                  (partition-all 10 occs)))))
+               got-hash   (set 
+                            (flatten
+                              (map
+                              #(query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash %))] :row-fn :hash)
+                                (partition-all 10 occs))))
 
                new-occs (filter (fn [o] (nil? (got-hash (:hash o)))) occs)
                new-occs (map (partial fix src) new-occs)
 
-               got-ids  (set (map :identifier 
-                                  (flatten
-                                  (map
-                                  #(query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier %))])
-                                    (partition-all 10 new-occs)
-                                  )
-                                  )
-                                  ))
+               got-ids  (set 
+                          (flatten
+                            (map
+                              #(query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :occurrenceID %))] :row-fn :identifier)
+                              (partition-all 10 new-occs))))
 
 
                to-del-ids (filter (fn [o] (not (nil? (got-ids (:identifier o))))) new-occs)]
