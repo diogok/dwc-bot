@@ -6,7 +6,8 @@
             [dwc-io.validation :as valid]
             [dwc-io.fixes :as fixes])
   (:require [clj-time.core :as t]
-            [clj-time.format :as f])
+            [clj-time.format :as f]
+            [clj-time.coerce :as c])
   (:require [batcher.core :refer :all])
   (:require [clojure.core.async :refer [<! <!! >! >!! go go-loop chan close!]])
   (:require [clojure.java.io :as io])
@@ -108,12 +109,16 @@
            #(= (:tag %) tag)
            (:content el))))))
 
+(defn parse-date
+  [date]
+  (f/parse (f/with-locale (f/formatters :rfc822) (java.util.Locale. "en")) date))
+
 (defn item-to-resource
   [item] 
   {:title (get-tag-value item :title)
    :link  (get-tag-value item :link)
-   :dwca  (get-tag-value item :dwca)
-   :pub   (get-tag-value item :pubDate)})
+   :pub   (get-tag-value item :pubDate)
+   :dwca  (str (get-tag-value item :dwca) "&timestamp=" (String/valueOf (c/to-long (parse-date (get-tag-value item :pubDate)))))})
 
 (defn get-resources
   [source] 
@@ -124,10 +129,6 @@
       (:content)
       (filter #(= (:tag %) :item))
       (map item-to-resource))))
-
-(defn parse-date
-  [date]
-  (f/parse (f/with-locale (f/formatters :rfc822) (java.util.Locale. "en")) date))
 
 (defn all-resources
   [] (flatten (map get-resources (get-inputs))))
@@ -254,14 +255,13 @@
          (do
            (println "Bot Active")
            (swap! status (fn [_] :active))
-           (let [recs  (changed-resources)
-                 dwcas (map :dwca recs)
-                 links (filter dwca/occurrences? dwcas)]
-             (println "Got" (count links) "resources")
+           (let [recs  (changed-resources)]
+             (println "Got" (count recs) "resources")
              (if (not (empty? recs)) (put-resources recs))
-             (doseq [link links]
-               (if (= :active @status)
-                 (run link))))
+             (doseq [rec recs]
+               (println "Resource" rec)
+               (if (and (= :active @status) (dwca/occurrences? (:dwca rec))) 
+                 (run (:dwca rec)))))
            (swap! status (fn [_] :idle))
            (Thread/sleep (* 30 60 1000)))))
      status))
