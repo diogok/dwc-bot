@@ -22,6 +22,7 @@
                  [ring/ring-jetty-adapter "1.4.0"]
                  [javax.servlet/servlet-api "2.5"]
 
+                 [com.taoensso/timbre "4.1.4"]
                  [environ "1.0.0"]]
   :profiles {:uberjar {:aot :all}
              :jar {:aot :all}

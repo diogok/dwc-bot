@@ -11,6 +11,7 @@
   (:require [batcher.core :refer :all])
   (:require [clojure.core.async :refer [<! <!! >! >!! go go-loop chan close!]])
   (:require [clojure.java.io :as io])
+  (:require [taoensso.timbre :as log])
   (:require [environ.core :refer (env)]))
 
 (declare conn)
@@ -47,7 +48,7 @@
         db-file   (io/file db-path)
         db-folder (io/file (.getParent db-file))
         create    (not (.exists db-file))]
-      (println "Using" db-path)
+      (log/info "Using" db-path)
       (if (not (.exists db-folder)) (.mkdir db-folder))
       (def conn {:classname "org.sqlite.JDBC" :subprotocol "sqlite" :subname (.getAbsolutePath db-file)})
       (if create
@@ -148,12 +149,16 @@
 
 (defn put-resources
   [recs] 
+ (log/info "New resources")
+ (doseq [r recs] (log/info r))
  (with-db-connection [cc conn]
    (execute! cc ["PRAGMA synchronous = OFF"])
    (query    cc ["PRAGMA journal_mode = WAL"])
-   (with-db-transaction [c cc]
-     (delete! c :resources [(in-f :link recs)])
-     (apply insert! c :resources recs))))
+   (try
+     (with-db-transaction [c cc]
+       (delete! c :resources [(in-f-0 :link recs)])
+       (apply insert! c :resources recs))
+     (catch Exception e (log/warn "Problem inserting resources" e)))))
 
 (defn estimate
   [resource] 
@@ -190,40 +195,42 @@
 
 (defn wat
   [stuff] 
-  (println stuff)
+  (log/info stuff)
   stuff)
 
 (defn bulk-insert
   [src occs]
    (with-db-connection [cc conn]
-     (println "Got" (count occs) "from" src)
+     (log/info "Got" (count occs) "from" src)
      (execute! cc ["PRAGMA synchronous = OFF"])
      (query    cc ["PRAGMA journal_mode = WAL"])
-     (with-db-transaction [c cc]
-       (time
-         (let [occs (map hashe occs)
+     (try
+       (with-db-transaction [c cc]
+         (time
+           (let [occs (map hashe occs)
 
-               got-hash  (set 
-                           (flatten
-                             (map
-                              #(query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash %))] :row-fn :hash)
-                              (partition-all 10 occs))))
+                 got-hash  (set 
+                             (flatten
+                               (map
+                                #(query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash %))] :row-fn :hash)
+                                (partition-all 10 occs))))
 
-               new-occs (filter (fn [o] (nil? (got-hash (:hash o)))) occs)
-               new-occs (map (partial fix src) new-occs)
+                 new-occs (filter (fn [o] (nil? (got-hash (:hash o)))) occs)
+                 new-occs (map (partial fix src) new-occs)
 
-               got-ids  (set 
-                          (flatten
-                            (map
-                              #(query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier %))] :row-fn :identifier)
-                              (partition-all 100 new-occs))))
+                 got-ids  (set 
+                            (flatten
+                              (map
+                                #(query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier %))] :row-fn :identifier)
+                                (partition-all 100 new-occs))))
 
-               to-del-ids (filter (fn [o] (not (nil? (got-ids (:identifier o))))) new-occs)]
-           (println (count got-hash) "not changed," (count to-del-ids) "changed and" (- (count new-occs) (count to-del-ids)) "new.")
-           (if (not (empty? to-del-ids))
-             (delete! c :occurrences [(in-f :identifier to-del-ids)]))
-           (if (not (empty? new-occs))
-             (apply insert! c :occurrences new-occs)))))))
+                 to-del-ids (filter (fn [o] (not (nil? (got-ids (:identifier o))))) new-occs)]
+             (log/info (count got-hash) "not changed," (count to-del-ids) "changed and" (- (count new-occs) (count to-del-ids)) "new.")
+             (if (not (empty? to-del-ids))
+               (delete! c :occurrences [(in-f :identifier to-del-ids)]))
+             (if (not (empty? new-occs))
+               (apply insert! c :occurrences new-occs)))))
+         (catch Exception e (log/warn e)))))
 
 (defn search
   [q] 
@@ -233,7 +240,7 @@
 
 (defn run
   [source]
-   (println "->" source)
+   (log/info "->" source)
    (let [waiter (chan 1)
          batch  (batcher {:time 0
                           :size (* 1 1024)
@@ -253,16 +260,19 @@
        (while
          (and (not (nil? @status)) (not (= :stop @status)))
          (do
-           (println "Bot Active")
+           (log/info "Bot Active")
            (swap! status (fn [_] :active))
            (let [recs  (changed-resources)]
-             (println "Got" (count recs) "resources")
+             (log/info "Got" (count recs) "resources")
              (if (not (empty? recs)) (put-resources recs))
              (doseq [rec recs]
-               (println "Resource" rec)
-               (if (and (= :active @status) (dwca/occurrences? (:dwca rec))) 
-                 (run (:dwca rec)))))
+               (log/info "Resource" rec)
+               (try
+                 (if (and (= :active @status) (dwca/occurrences? (:dwca rec))) 
+                   (run (:dwca rec)))
+                 (catch Exception e (log/warn "Exception runing" rec e)))))
            (swap! status (fn [_] :idle))
+           (log/info "Will rest.")
            (Thread/sleep (* 30 60 1000)))))
      status))
 
