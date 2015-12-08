@@ -24,7 +24,7 @@
 
 (fact "Can index occurrences"
   (let [src "http://ipt.jbrj.gov.br/jbrj/archive.do?r=jbrj_w"]
-    (run src)
+    (time (run src))
     (println "search")
     (count (time (search "jbrj_w"))) => 10121))
 

@@ -198,6 +198,22 @@
   (log/info stuff)
   stuff)
 
+(defn find-by-hashes-0
+  [c occs] 
+   (query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash occs))] :row-fn :hash))
+
+(defn find-by-hashes
+  [c occs] 
+   (set (flatten (map (partial find-by-hashes-0 c) (partition-all 10 occs)))))
+
+(defn find-by-ids-0
+  [c occs] 
+   (query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier occs))] :row-fn :identifier))
+
+(defn find-by-ids
+  [c occs]
+  (set (flatten (map (partial find-by-ids-0 c) (partition-all 10 occs)))))
+
 (defn bulk-insert
   [src occs]
    (with-db-connection [cc conn]
@@ -209,23 +225,15 @@
          (time
            (let [occs (map hashe occs)
 
-                 got-hash  (set 
-                             (flatten
-                               (map
-                                #(query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash %))] :row-fn :hash)
-                                (partition-all 10 occs))))
+                 hashes-found (find-by-hashes c occs)
 
-                 new-occs (filter (fn [o] (nil? (got-hash (:hash o)))) occs)
+                 new-occs (filter (fn [o] (nil? (hashes-found (:hash o)))) occs)
                  new-occs (map (partial fix src) new-occs)
 
-                 got-ids  (set 
-                            (flatten
-                              (map
-                                #(query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier %))] :row-fn :identifier)
-                                (partition-all 100 new-occs))))
+                 ids-found (find-by-ids c new-occs)
 
-                 to-del-ids (filter (fn [o] (not (nil? (got-ids (:identifier o))))) new-occs)]
-             (log/info (count got-hash) "not changed," (count to-del-ids) "changed and" (- (count new-occs) (count to-del-ids)) "new.")
+                 to-del-ids (filter (fn [o] (not (nil? (ids-found (:identifier o))))) new-occs)]
+             (log/info (count hashes-found) "not changed," (count to-del-ids) "changed and" (- (count new-occs) (count to-del-ids)) "new.")
              (if (not (empty? to-del-ids))
                (delete! c :occurrences [(in-f :identifier to-del-ids)]))
              (if (not (empty? new-occs))
@@ -242,8 +250,7 @@
   [source]
    (log/info "->" source)
    (let [waiter (chan 1)
-         batch  (batcher {:time 0
-                          :size (* 1 1024)
+         batch  (batcher {:size (* 1 1024)
                           :fn (partial bulk-insert source)
                           :end waiter})]
      (dwca/read-archive-stream source
