@@ -2,6 +2,7 @@
   (:require [dwc-bot.core :as core])
   (:require [clojure.data.json :refer [write-str read-str]])
   (:require [environ.core :refer (env)])
+  (:require [taoensso.timbre :as log])
   (:require [ring.adapter.jetty :refer (run-jetty)])
 
   (:use ring.middleware.params
@@ -31,18 +32,29 @@
   (fn [req] 
     (let [uri    (:uri req)
           method (:request-method req)]
-      (println method uri)
+      (log/info "Request " method uri)
       (if-let [hand (get routes [method uri])]
-        (hand req)
+        (try 
+          (hand req)
+          (catch Exception e 
+            (do
+              (log/error "Exception from " req e)
+              {:status 500 :body (:error (.getMessage e))})))
         {:status 404 :body {:error "not found"}}))))
 
 (def server (atom nil))
 (def bot    (atom nil))
 
+(defn maybe-json
+  [req] 
+  (if (= "application/json" (:content-type req))
+    (assoc req :body (read-str (slurp (:body req)) :key-fn keyword))
+    req))
+
 (defn mid-json
   [handler]
   (fn [req]
-    (let [req (if (= "application/json" (:content-type req)) (assoc req :body (read-str (slurp (:body req)) :key-fn keyword)) req)
+    (let [req (maybe-json req)
           res (handler req)]
       (if (not (nil? (:status res)))
         (if (:body res)
