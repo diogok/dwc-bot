@@ -14,6 +14,11 @@
   (:require [taoensso.timbre :as log])
   (:require [environ.core :refer (env)]))
 
+(defn wat
+  [stuff] 
+  (log/info stuff)
+  stuff)
+
 (declare conn)
 
 (def metafields ["identifier" "source" "hash" "timestamp"])
@@ -46,12 +51,11 @@
   []
   (let [db-path   (str (or (env :data-dir) "data") "/dwc.db")
         db-file   (io/file db-path)
-        db-folder (io/file (.getParent db-file))
-        create    (not (.exists db-file))]
+        db-folder (io/file (.getParent db-file))]
       (log/info "Using" db-path)
-      (if (not (.exists db-folder)) (.mkdir db-folder))
+      (when-not (.exists db-folder) (.mkdir db-folder))
       (def conn {:classname "org.sqlite.JDBC" :subprotocol "sqlite" :subname (.getAbsolutePath db-file)})
-      (if create
+      (when-not (.exists db-file)
         (do
           (execute! conn 
             [(str "CREATE VIRTUAL TABLE occurrences USING fts4(" (apply str (interpose " , " (apply conj fields metafields))) ")")])
@@ -75,10 +79,7 @@
 
 (defn get-outputs
   [] 
-  (distinct
-    (map
-      :url
-      (query conn ["SELECT url FROM output;"]))))
+  (distinct (query conn ["SELECT url FROM output;"] :row-fn :url)))
 
 (defn put-input
   [url] 
@@ -114,12 +115,18 @@
   [date]
   (f/parse (f/with-locale (f/formatters :rfc822) (java.util.Locale. "en")) date))
 
+(defn date-to-timestamp
+  [date]
+   (String/valueOf (c/to-long (parse-date date))))
+
 (defn item-to-resource
   [item] 
   {:title (get-tag-value item :title)
    :link  (get-tag-value item :link)
    :pub   (get-tag-value item :pubDate)
-   :dwca  (str (get-tag-value item :dwca) "&timestamp=" (String/valueOf (c/to-long (parse-date (get-tag-value item :pubDate)))))})
+   :dwca  (str (get-tag-value item :dwca) 
+               "&timestamp=" 
+               (date-to-timestamp (get-tag-value item :pubDate)))})
 
 (defn get-resources
   [source] 
@@ -134,18 +141,27 @@
 (defn all-resources
   [] (flatten (map get-resources (get-inputs))))
 
+(defn db-resources
+  []
+   (reduce
+     (fn [recs rec]
+       (assoc recs (:link rec) rec))
+     {}
+     (query conn ["SELECT * FROM resources"])))
+
+(defn changed-resource?
+  [on-db rec]
+   (if-let [db-rec (on-db (:link rec))]
+     (let [db-time (parse-date (:pub db-rec))
+           rec-time (parse-date (:pub rec))]
+       (t/after? rec-time db-time))
+     true))
+
 (defn changed-resources
   [] 
-   (let [on-db (reduce (fn [recs rec] (assoc recs (:link rec) rec)) {} (query conn ["SELECT * FROM resources"]))
+   (let [on-db    (db-resources)
          all-recs (all-resources)]
-     (filter 
-       (fn [rec]
-           (if-let [db-rec (on-db (:link rec))]
-             (let [db-time (parse-date (:pub db-rec))
-                   rec-time (parse-date (:pub rec))]
-               (t/after? rec-time db-time))
-             true))
-       all-recs)))
+     (filter (partial changed-resource? on-db) all-recs)))
 
 (defn put-resources
   [recs] 
@@ -193,26 +209,21 @@
       (dissoc :references)
       (dissoc :group))))
 
-(defn wat
-  [stuff] 
-  (log/info stuff)
-  stuff)
-
-(defn find-by-hashes-0
+(defn find-hashes-0
   [c occs] 
    (query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash occs))] :row-fn :hash))
 
-(defn find-by-hashes
+(defn find-hashes
   [c occs] 
-   (set (flatten (map (partial find-by-hashes-0 c) (partition-all 10 occs)))))
+   (set (flatten (map (partial find-hashes-0 c) (partition-all 10 occs)))))
 
-(defn find-by-ids-0
+(defn find-ids-0
   [c occs] 
    (query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier occs))] :row-fn :identifier))
 
-(defn find-by-ids
+(defn find-ids
   [c occs]
-  (set (flatten (map (partial find-by-ids-0 c) (partition-all 10 occs)))))
+  (set (flatten (map (partial find-ids-0 c) (partition-all 10 occs)))))
 
 (defn bulk-insert
   [src occs]
@@ -225,18 +236,18 @@
          (time
            (let [occs (map hashe occs)
 
-                 hashes-found (find-by-hashes c occs)
+                 hashes-found (find-hashes c occs)
 
                  new-occs (filter (fn [o] (nil? (hashes-found (:hash o)))) occs)
                  new-occs (map (partial fix src) new-occs)
 
-                 ids-found (find-by-ids c new-occs)
+                 ids-found (find-ids c new-occs)
 
                  to-del-ids (filter (fn [o] (not (nil? (ids-found (:identifier o))))) new-occs)]
              (log/info (count hashes-found) "not changed," (count to-del-ids) "changed and" (- (count new-occs) (count to-del-ids)) "new.")
-             (if (not (empty? to-del-ids))
+             (when-not (empty? to-del-ids)
                (delete! c :occurrences [(in-f :identifier to-del-ids)]))
-             (if (not (empty? new-occs))
+             (when-not (empty? new-occs)
                (apply insert! c :occurrences new-occs)))))
          (catch Exception e (log/warn e)))))
 
@@ -275,7 +286,7 @@
              (doseq [rec recs]
                (log/info "Resource" rec)
                (try
-                 (if (and (= :active @status) (dwca/occurrences? (:dwca rec))) 
+                 (when (and (= :active @status) (dwca/occurrences? (:dwca rec)))
                    (run (:dwca rec)))
                  (catch Exception e (log/warn "Exception runing" rec e)))))
            (swap! status (fn [_] :idle))
