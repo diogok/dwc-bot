@@ -7,9 +7,16 @@
 
   (:use ring.middleware.params
         ring.middleware.keyword-params
-        ring.middleware.resource)
+        ring.middleware.resource
+        ring.middleware.reload)
 
   (:gen-class))
+
+(defn result
+  [data]
+  {:result data
+   :count (count data)
+   :success true})
 
 (def routes
   {[:get "/"] 
@@ -17,15 +24,23 @@
        {:status 302 :headers {"Location" "/index.html"}})
    [:get "/search"]
     (fn [req] 
-      (core/search (get (:query-params req) "q")))
-   [:get "/input"
-    (fn[req] (core/get-inputs))]
-   [:post "/input"
-    (fn[req] (core/put-input (:url (:body req))))]
-   [:get "/output"
-    (fn [req] (core/get-outputs))]
-   [:post "/output"
-    (fn[req] (core/put-output (:url (:body req))))]
+      (result (core/search (get (:query-params req) "q")
+                           (Integer/valueOf
+                             (or (get  (:query-params req) "start") "0")))))
+   [:get "/inputs"]
+    (fn [req] (result (core/get-inputs)))
+   [:post "/inputs"]
+    (fn [req]
+      (core/put-input (:url (:body req)))
+      {:status 201 :body (:url (:body req))})
+   [:get "/resources"]
+    (fn [req] (result (core/all-resources)))
+   [:get "/outputs"]
+    (fn [req] (result (core/get-outputs)))
+   [:post "/outputs"]
+    (fn [req]
+      (core/put-output (:url (:body req)))
+      {:status 201 :body (:url (:body req))})
   })
 
 (def handler
@@ -39,6 +54,7 @@
           (catch Exception e 
             (do
               (log/error "Exception from " req e)
+              (.printStackTrace e)
               {:status 500 :body (:error (.getMessage e))})))
         {:status 404 :body {:error "not found"}}))))
 
@@ -68,7 +84,8 @@
     (mid-json)
     (wrap-params)
     (wrap-keyword-params)
-    (wrap-resource "public")))
+    (wrap-resource "public")
+    (wrap-reload)))
 
 (defn start
   ([] (start false))
