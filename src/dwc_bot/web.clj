@@ -28,7 +28,7 @@
                            (Integer/valueOf
                              (or (get  (:query-params req) "start") "0")))))
    [:get "/inputs"]
-    (fn [req] (result (core/get-inputs)))
+    (fn [req] (result (map #(.replace % "/rss.do" "") (core/get-inputs))))
    [:post "/inputs"]
     (fn [req]
       (core/put-input (:url (:body req)))
