@@ -22,6 +22,9 @@
   {[:get "/"] 
      (fn [req]
        {:status 302 :headers {"Location" "/index.html"}})
+   [:get "/docs"]
+     (fn [req]
+       {:status 302 :headers {"Location" "/docs/index.html"}})
    [:get "/inputs"]
     (fn [req] (result (map #(.replace % "/rss.do" "") (core/get-inputs))))
    [:post "/inputs"]

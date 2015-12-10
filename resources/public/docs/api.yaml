@@ -1,0 +1,159 @@
+swagger: '2.0'
+info:
+  title: DarwinCore Bot API
+  description: Access resources from the crawled DarwinCore Archives
+  version: 1.0.0
+schemes:
+  - http
+basePath: /
+produces:
+  - application/json
+paths:
+  /search:
+    get:
+      summary: Search using full text search.
+      description: Simple query mechanism to search all crawled , using full text search format.
+      parameters:
+        - name: query
+          in: query
+          description: Text of query
+          required: true
+          type: string
+      responses:
+        '200':
+          description: An object with an array of occurrences.
+          schema:
+            $ref: '#/definitions/Response'
+        '500':
+          description: An internal error occurred.
+          schema:
+            $ref: '#/definitions/Error'
+  /inputs:
+    get:
+      summary: Sources of IPTs URLs
+      description: List the source IPTs URLs
+      responses:
+        '200':
+          description: An object with an array of URLs
+          schema:
+            $ref: '#/definitions/URLs'
+        '500':
+          description: An internal error occurred
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Insert an IPT URL
+      description: Insert an IPT URL to be crawled
+      responses:
+        '201':
+          description: An object with an array of a single URL
+          schema:
+            $ref: '#/definitions/URLs'
+        '500':
+          description: An internal error occurred
+          schema:
+            $ref: '#/definitions/Error'
+  /resources:
+    get:
+      summary: Sources of resources found in registered IPTs
+      description: List the source IPTs resources
+      responses:
+        '200':
+          description: An object with an array of resources
+          schema:
+            $ref: '#/definitions/Resources'
+        '500':
+          description: An internal error occurred
+          schema:
+            $ref: '#/definitions/Error'
+  /outputs:
+    get:
+      summary: Sources of output URLs
+      description: Output URLs will receive new and changed occurences as a webhook.
+      responses:
+        '200':
+          description: An object with an array of URLs
+          schema:
+            $ref: '#/definitions/URLs'
+        '500':
+          description: An internal error occurred
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Insert an IPT URL
+      description: Insert an output URLs will receive new and changed occurences as a webhook.
+      responses:
+        '201':
+          description: An object with an array of a single URL
+          schema:
+            $ref: '#/definitions/URLs'
+        '500':
+          description: An internal error occurred
+          schema:
+            $ref: '#/definitions/Error'
+definitions:
+  URLs:
+    type: object
+    properties:
+      success:
+        type: boolean
+        description: 'True in case of successfull request'
+      count:
+        type: number
+        description: Number of resources
+      result:
+        type: array
+        description: List of URLs
+        items:
+          type: string
+  Resources:
+    type: object
+    properties:
+      success:
+        type: boolean
+        description: 'True in case of successfull request'
+      count:
+        type: number
+        description: Number of resources
+      result:
+        type: array
+        description: List of resources
+        items:
+          type: object
+          properties:
+            link:
+              type: string
+              description: Link to the resource page
+            pub:
+              type: string
+              description: Date last published
+            title:
+              type: string
+              description: Title of the resource
+            dwca:
+              type: string
+              description: Link to DarwinCore Archive download
+
+  Response:
+    type: object
+    properties:
+      success:
+        type: boolean
+        description: 'True in case of successfull request'
+      count:
+        type: number
+        description: Number of resources
+      result:
+        type: array
+        description: The actual result
+        items:
+          type: object
+  Error:
+    type: object
+    properties:
+      success:
+        type: boolean
+        description: False indicating that request failed
+      error:
+        type: string
+        description: Text of error
