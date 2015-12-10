@@ -252,10 +252,10 @@
          (catch Exception e (log/warn e)))))
 
 (defn search
-  [q] 
-  (map 
-    fixes/-fix->
-    (query conn ["SELECT * FROM occurrences WHERE occurrences MATCH ?" q])))
+  [q start] 
+  (query conn
+     ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT 5000 OFFSET ?" q  start]
+     :row-fn fixes/fix-nils))
 
 (defn run
   [source]
