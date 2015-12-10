@@ -15,15 +15,26 @@
   <p><a href="sources.html">Sources.</a></p>
   <h2>Search</h2>
   <div class="pure-g">
-    <form class="pure-form pure-form-stacked pure-u-1-5" id='search_form'>
-      <fieldset>
-        <label for="query">Query</label>
-        <input id="query" name='query' type="text" class='pure-input' />
-        <button id='search' class='pure-button'>Search</button>
-        <label for="start">Start</label>
-        <input id="start" name="start" type="number" class='pure-input' value='0' />
-      </fieldset>
-    </form>
+    <div class='pure-u-1-5'>
+      <form class="pure-form pure-form-stacked" id='search_form'>
+        <fieldset>
+          <legend>Simple search</legend>
+          <label for="query">Query</label>
+          <input id="query" name='query' type="text" class='pure-input' />
+          <label for="start">Start</label>
+          <input id="start" name="start" type="number" class='pure-input' value='0' />
+          <button id='search' class='pure-button'>Search</button>
+        </fieldset>
+      </form>
+      <form class="pure-form pure-form-stacked" id='search2_form'>
+        <fieldset>
+          <legend>Advanced search</legend>
+          <input id="start" name="start" type="number" class='pure-input' value='0' />
+          <button id='search' class='pure-button'>Search</button>
+        </fieldset>
+        </fieldset>
+      </form>
+    </div>
     <div class="pure-u-4-5">
       <div id="map" class="pure-u-1"></div>
       <div id="list" class="pure-u-1">

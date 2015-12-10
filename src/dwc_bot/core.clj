@@ -257,6 +257,15 @@
      ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT 5000 OFFSET ?" q  start]
      :row-fn fixes/fix-nils))
 
+(defn search-filtered
+  [filters start] 
+  (query conn
+    (wat 
+      ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT 5000 OFFSET ?"
+       (apply str (interpose " AND " (map #(str (key %) ":" (val %)) (into {} (filter second filters)))))
+       start])
+     :row-fn fixes/fix-nils))
+
 (defn run
   [source]
    (log/info "->" source)

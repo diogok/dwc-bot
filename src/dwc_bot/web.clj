@@ -22,11 +22,6 @@
   {[:get "/"] 
      (fn [req]
        {:status 302 :headers {"Location" "/index.html"}})
-   [:get "/search"]
-    (fn [req] 
-      (result (core/search (get (:query-params req) "q")
-                           (Integer/valueOf
-                             (or (get  (:query-params req) "start") "0")))))
    [:get "/inputs"]
     (fn [req] (result (map #(.replace % "/rss.do" "") (core/get-inputs))))
    [:post "/inputs"]
@@ -41,6 +36,24 @@
     (fn [req]
       (core/put-output (:url (:body req)))
       {:status 201 :body (:url (:body req))})
+   [:get "/fields"]
+     (fn [req]
+       (result core/fields))
+   [:get "/search"]
+    (fn [req] 
+      (result (core/search (get (:query-params req) "q")
+                           (Integer/valueOf
+                             (or (get  (:query-params req) "start") "0")))))
+   [:get "/search/filtered"]
+    (fn [req] 
+      (result (core/search-filtered 
+                      (into {}
+                      (filter #(not ( = "start" (key %) ))
+                      (:query-params req)
+                      )
+                      )
+                      (Integer/valueOf
+                           (or (get  (:query-params req) "start") "0")))))
   })
 
 (def handler
