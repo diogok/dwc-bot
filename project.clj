@@ -16,14 +16,16 @@
                  [clj-time "0.11.0"]
 
                  [batcher "0.1.1"]
-                 [dwc-io "0.0.50"]
+                 [dwc-io "0.0.53"]
 
                  [ring/ring-core "1.4.0"]
+                 [ring/ring-devel "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [javax.servlet/servlet-api "2.5"]
 
                  [com.taoensso/timbre "4.1.4"]
                  [environ "1.0.0"]]
+  :source-paths ["src"]
   :profiles {:uberjar {:aot :all}
              :jar {:aot :all}
              :dev {:dependencies [[midje "1.8.2"]]
