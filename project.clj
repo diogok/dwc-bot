@@ -16,7 +16,7 @@
                  [clj-time "0.11.0"]
 
                  [batcher "0.1.1"]
-                 [dwc-io "0.0.53"]
+                 [dwc-io "0.0.54"]
 
                  [ring/ring-core "1.4.0"]
                  [ring/ring-devel "1.4.0"]
