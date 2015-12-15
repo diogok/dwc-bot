@@ -80,7 +80,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     post:
-      summary: Insert an IPT URL
+      summary: Insert an output URL
       description: Insert an output URLs will receive new and changed occurences as a webhook.
       responses:
         '201':
