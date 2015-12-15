@@ -251,20 +251,28 @@
                (apply insert! c :occurrences new-occs)))))
          (catch Exception e (log/warn e)))))
 
+(defn search-all
+ [q] 
+  (query conn
+     ["SELECT * FROM occurrences WHERE occurrences MATCH ?" q]
+     :row-fn fixes/-fix->))
+
 (defn search
-  [q start] 
+ ([q] (search q 0)) 
+ ([q start] 
   (query conn
      ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT 5000 OFFSET ?" q  start]
-     :row-fn fixes/fix-nils))
+     :row-fn fixes/-fix->)))
 
 (defn search-filtered
-  [filters start] 
+ ([filters] (search-filtered 0))
+ ([filters start] 
   (query conn
     (wat 
       ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT 5000 OFFSET ?"
        (apply str (interpose " AND " (map #(str (key %) ":" (val %)) (into {} (filter second filters)))))
        start])
-     :row-fn fixes/fix-nils))
+     :row-fn fixes/-fix->)))
 
 (defn run
   [source]

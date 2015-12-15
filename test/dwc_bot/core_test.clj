@@ -26,17 +26,17 @@
   (let [src "http://ipt.jbrj.gov.br/jbrj/archive.do?r=jbrj_w"]
     (time (run src))
     (println "search")
-    (count (time (search "jbrj_w"))) => 10121))
+    (count (time (search-all "jbrj_w"))) => 10121))
 
 (fact "Index only changes"
   (let [occ0 {:occurrenceID "0"}
         occ1 {:occurrenceID "1"}
         occ2 {:occurrenceID "2"}]
     (bulk-insert "hello_test" [occ0 occ1])
-    (map :occurrenceID (search "hello_test"))
+    (map :occurrenceID (search-all "hello_test"))
      => (list "0" "1")
-    (let [reocc0 (first (search "occurrenceID:0"))
-          reocc1 (first (search "occurrenceID:1"))]
+    (let [reocc0 (first (search-all "occurrenceID:0"))
+          reocc1 (first (search-all "occurrenceID:1"))]
       (bulk-insert "hello_test" [occ0 occ1])
       (search "hello_test") => (list reocc0 reocc1)
       (bulk-insert "hello_test" [occ0 occ1 occ2])
