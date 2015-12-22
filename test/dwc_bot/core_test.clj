@@ -8,7 +8,6 @@
 (execute! conn ["DELETE FROM input"])
 (execute! conn ["DELETE FROM occurrences"])
 (execute! conn ["DELETE FROM resources"])
-(execute! conn ["DELETE FROM output"])
 
 (fact "Working sources"
   (let [src "http://ipt.jbrj.gov.br/jbrj"]

@@ -63,23 +63,7 @@
             ["CREATE TABLE input (url)"])
           (execute! conn
             ["CREATE TABLE resources (dwca,link,pub,title)"])
-          (execute! conn
-            ["CREATE TABLE output (url)"])
           ))))
-
-(defn put-output
-  [url] 
-   (let [url (if (.endsWith url "/") url (str url "/"))]
-     (insert! conn :output {:url url})))
-
-(defn rm-output
-  [url]
-  (delete! conn :output ["url=?" url])
-  (delete! conn :output ["url=?" (str url "/")]))
-
-(defn get-outputs
-  [] 
-  (distinct (query conn ["SELECT url FROM output;"] :row-fn :url)))
 
 (defn put-input
   [url] 

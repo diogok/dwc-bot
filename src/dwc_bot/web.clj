@@ -30,12 +30,6 @@
       {:status 201 :body (:url (:body req))})
    [:get "/resources"]
     (fn [req] (result (core/all-resources)))
-   [:get "/outputs"]
-    (fn [req] (result (core/get-outputs)))
-   [:post "/outputs"]
-    (fn [req]
-      (core/put-output (:url (:body req)))
-      {:status 201 :body (:url (:body req))})
    [:get "/fields"]
      (fn [req]
        (result core/fields))
