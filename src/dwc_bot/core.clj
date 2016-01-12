@@ -63,23 +63,7 @@
             ["CREATE TABLE input (url)"])
           (execute! conn
             ["CREATE TABLE resources (dwca,link,pub,title)"])
-          (execute! conn
-            ["CREATE TABLE output (url)"])
           ))))
-
-(defn put-output
-  [url] 
-   (let [url (if (.endsWith url "/") url (str url "/"))]
-     (insert! conn :output {:url url})))
-
-(defn rm-output
-  [url]
-  (delete! conn :output ["url=?" url])
-  (delete! conn :output ["url=?" (str url "/")]))
-
-(defn get-outputs
-  [] 
-  (distinct (query conn ["SELECT url FROM output;"] :row-fn :url)))
 
 (defn put-input
   [url] 
@@ -259,20 +243,21 @@
 
 (defn search
  ([q] (search q 0)) 
- ([q start] 
+ ([q start] (search q start 5000))
+ ([q start limit] 
   (query conn
-     ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT 5000 OFFSET ?" q  start]
+     ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT ? OFFSET ?" q limit start]
      :row-fn fixes/-fix->)))
 
 (defn search-filtered
- ([filters] (search-filtered 0))
- ([filters start] 
+ ([filters] (search-filtered filters 0))
+ ([filters start] (search-filtered filters 0 5000))
+ ([filters start limit] 
   (query conn
-    (wat 
-      ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT 5000 OFFSET ?"
-       (apply str (interpose " AND " (map #(str (key %) ":" (val %)) (into {} (filter second filters)))))
-       start])
-     :row-fn fixes/-fix->)))
+    ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT ? OFFSET ?"
+     (apply str (interpose " AND " (map #(str (key %) ":" (val %)) (into {} (filter second filters)))))
+     limit start])
+   :row-fn fixes/-fix->))
 
 (defn run
   [source]

@@ -66,31 +66,6 @@ paths:
           description: An internal error occurred
           schema:
             $ref: '#/definitions/Error'
-  /outputs:
-    get:
-      summary: Sources of output URLs
-      description: Output URLs will receive new and changed occurences as a webhook.
-      responses:
-        '200':
-          description: An object with an array of URLs
-          schema:
-            $ref: '#/definitions/URLs'
-        '500':
-          description: An internal error occurred
-          schema:
-            $ref: '#/definitions/Error'
-    post:
-      summary: Insert an output URL
-      description: Insert an output URLs will receive new and changed occurences as a webhook.
-      responses:
-        '201':
-          description: An object with an array of a single URL
-          schema:
-            $ref: '#/definitions/URLs'
-        '500':
-          description: An internal error occurred
-          schema:
-            $ref: '#/definitions/Error'
 definitions:
   URLs:
     type: object

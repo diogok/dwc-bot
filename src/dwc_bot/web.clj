@@ -31,12 +31,6 @@
       {:status 201 :body (:url (:body req))})
    [:get "/resources"]
     (fn [req] (result (core/all-resources)))
-   [:get "/outputs"]
-    (fn [req] (result (core/get-outputs)))
-   [:post "/outputs"]
-    (fn [req]
-      (core/put-output (:url (:body req)))
-      {:status 201 :body (:url (:body req))})
    [:get "/fields"]
      (fn [req]
        (result core/fields))
@@ -49,12 +43,12 @@
     (fn [req] 
       (result (core/search-filtered 
                       (into {}
-                      (filter #(not ( = "start" (key %) ))
-                      (:query-params req)
-                      )
-                      )
+                        (filter #(not (some #{"start" "limit"} [(key %)]))
+                        (:query-params req)))
                       (Integer/valueOf
-                           (or (get  (:query-params req) "start") "0")))))
+                         (or (get  (:query-params req) "start") "0"))
+                      (Integer/valueOf
+                         (or (get  (:query-params req) "limit") "0")))))
   })
 
 (def handler
