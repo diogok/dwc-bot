@@ -8,6 +8,7 @@
   (:use ring.middleware.params
         ring.middleware.keyword-params
         ring.middleware.resource
+        ring.middleware.cors
         ring.middleware.reload)
 
   (:gen-class))
@@ -98,6 +99,8 @@
     (wrap-params)
     (wrap-keyword-params)
     (wrap-resource "public")
+    (wrap-cors :access-control-allow-origin [#".*"]
+               :access-control-allow-methods [:get :put :post :delete])
     (wrap-reload)))
 
 (defn start

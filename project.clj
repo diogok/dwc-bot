@@ -22,6 +22,7 @@
                  [ring/ring-devel "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [javax.servlet/servlet-api "2.5"]
+                 [ring-cors "0.1.7"]
 
                  [com.taoensso/timbre "4.1.4"]
                  [environ "1.0.0"]]
