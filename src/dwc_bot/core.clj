@@ -114,13 +114,16 @@
 
 (defn get-resources
   [source] 
-  (let [rss (xml/parse (io/reader source))]
-    (->> rss
-      (:content)
-      (first)
-      (:content)
-      (filter #(= (:tag %) :item))
-      (map item-to-resource))))
+  (try
+    (let [rss (xml/parse (io/reader source))]
+      (->> rss
+        (:content)
+        (first)
+        (:content)
+        (filter #(= (:tag %) :item))
+        (map item-to-resource)))
+    (catch Exception e 
+      (log/warn "Fail to load" source e))))
 
 (defn all-resources
   [] (flatten (map get-resources (get-inputs))))
@@ -266,8 +269,11 @@
          batch  (batcher {:size (* 1 1024)
                           :fn (partial bulk-insert source)
                           :end waiter})]
-     (dwca/read-archive-stream source
-       (fn [occ] (>!! batch occ)))
+     (try
+       (dwca/read-archive-stream source
+         (fn [occ] (>!! batch occ)))
+       (catch Exception e
+         (log/warn "Fail to read or process" source e)))
      (close! batch)
      (<!! waiter)))
 
