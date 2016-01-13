@@ -5,7 +5,7 @@
   :main dwc-bot.web
   :dependencies [[org.clojure/clojure "1.7.0"]
 
-                 [org.clojure/core.async "0.1.346.0-17112a-alpha"]
+                 [org.clojure/core.async "0.2.374"]
                  [org.clojure/data.xml "0.0.7"]
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/data.json "0.2.5"]
