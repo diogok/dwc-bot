@@ -1,5 +1,6 @@
 (ns dwc-bot.web
-  (:require [dwc-bot.core :as core])
+  (:require [dwc-bot.core :as core]
+            [dwc-bot.db :as db])
   (:require [clojure.data.json :refer [write-str read-str]])
   (:require [environ.core :refer (env)])
   (:require [taoensso.timbre :as log])
@@ -24,24 +25,24 @@
      (fn [req]
        {:status 302 :headers {"Location" "/index.html"}})
    [:get "/inputs"]
-    (fn [req] (result (map #(.replace % "/rss.do" "") (core/get-inputs))))
+    (fn [req] (result (map #(.replace % "/rss.do" "") (db/get-inputs))))
    [:post "/inputs"]
     (fn [req]
-      (core/put-input (:url (:body req)))
+      (db/put-input (:url (:body req)))
       {:status 201 :body (:url (:body req))})
    [:get "/resources"]
     (fn [req] (result (core/all-resources)))
    [:get "/fields"]
      (fn [req]
-       (result core/fields))
+       (result db/fields))
    [:get "/search"]
     (fn [req] 
-      (result (core/search (get (:query-params req) "q")
+      (result (db/search (get (:query-params req) "q")
                            (Integer/valueOf
                              (or (get  (:query-params req) "start") "0")))))
    [:get "/search/filtered"]
     (fn [req] 
-      (result (core/search-filtered 
+      (result (db/search-filtered 
                       (into {}
                         (filter #(not (some #{"start" "limit"} [(key %)]))
                         (:query-params req)))

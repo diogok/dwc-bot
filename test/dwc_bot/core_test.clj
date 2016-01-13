@@ -1,9 +1,10 @@
 (ns dwc-bot.core-test
   (:require [clojure.java.jdbc :refer :all])
   (:require [midje.sweet  :refer :all]
-            [dwc-bot.core :refer :all]))
+            [dwc-bot.core :refer :all]
+            [dwc-bot.db   :refer :all]))
 
-(connect)
+(connect "data-test/dwc.db") 
 
 (execute! conn ["DELETE FROM input"])
 (execute! conn ["DELETE FROM occurrences"])
