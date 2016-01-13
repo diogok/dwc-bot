@@ -104,7 +104,7 @@
     [host (or (env :host) "0.0.0.0")
      port (or (env :port) "8383")
      opts {:port (Integer/valueOf port) :host host :join? join}]
-    (println "Listening on" (str host ":" port))
+    (log/info "Listening on" (str host ":" port))
     (let [b (core/start)
           s (run-jetty #'app opts)]
       (swap! server (fn [_] s))
