@@ -1,0 +1,7 @@
+dwc-bot:
+  image: diogok/lein
+  ports:
+    - 8383:8383
+  volumes:
+    - .:/project
+
