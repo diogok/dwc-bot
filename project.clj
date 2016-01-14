@@ -27,7 +27,6 @@
                  [com.taoensso/timbre "4.1.4"]
                  [environ "1.0.0"]]
   :source-paths ["src"]
-  :profiles {:uberjar {:aot :all}
-             :jar {:aot :all}
+  :profiles {:uberjar {:aot [dwc-bot.web]}
              :dev {:dependencies [[midje "1.8.2"]]
                    :plugins [[lein-midje "3.2"]]}})

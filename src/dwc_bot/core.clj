@@ -1,6 +1,6 @@
 (ns dwc-bot.core
   (:require [dwc-bot.db :refer :all])
-  (:require [clojure.java.jdbc :refer :all])
+  (:require [clojure.java.jdbc :refer [insert! delete! execute! query with-db-connection with-db-transaction]])
   (:require [clojure.data.xml :as xml])
   (:require [dwc-io.archive :as dwca]
             [dwc-io.fixes :as fixes])

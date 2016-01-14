@@ -1,7 +1,7 @@
 (ns dwc-bot.db
   (:require [dwc-io.validation :as valid]
             [dwc-io.fixes :as fixes])
-  (:require [clojure.java.jdbc :refer :all])
+  (:require [clojure.java.jdbc :refer [insert! delete! execute! query with-db-connection with-db-transaction]])
   (:require [clojure.java.io :as io])
   (:require [taoensso.timbre :as log])
   (:require [environ.core :refer (env)]))
