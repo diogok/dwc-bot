@@ -39,7 +39,9 @@
     (fn [req] 
       (result (db/search (get (:query-params req) "q")
                            (Integer/valueOf
-                             (or (get  (:query-params req) "start") "0")))))
+                             (or (get  (:query-params req) "start") "0"))
+                           (Integer/valueOf
+                             (or (get  (:query-params req) "limit") "5000")))))
    [:get "/search/filtered"]
     (fn [req] 
       (result (db/search-filtered 
@@ -49,7 +51,7 @@
                       (Integer/valueOf
                          (or (get  (:query-params req) "start") "0"))
                       (Integer/valueOf
-                         (or (get  (:query-params req) "limit") "0")))))
+                         (or (get  (:query-params req) "limit") "5000")))))
   })
 
 (def handler
