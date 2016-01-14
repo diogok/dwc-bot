@@ -54,6 +54,15 @@
                          (or (get  (:query-params req) "start") "0"))
                       (Integer/valueOf
                          (or (get  (:query-params req) "limit") "5000")))))
+   [:get "/api.yaml"]
+    (fn [req]
+      {:status 200
+       :headers {"Content-Type" "application/yaml"}
+       :body
+      (.replace
+        (slurp (clojure.java.io/resource "public/api.yml")) 
+        "basePath: /"
+        (str "basePath: " (if (= 0 (count proxy-path)) "/" proxy-path)))})
   })
 
 (def handler
@@ -86,7 +95,7 @@
     (let [req (maybe-json req)
           res (handler req)]
       (if (not (nil? (:status res)))
-        (if (:body res)
+        (if (and (:body res) (nil? (get-in res [:headers "Content-Type"])))
           (assoc res :body (write-str (:body res))
                      :headers {"Content-Type" "application/json"})
           res)
