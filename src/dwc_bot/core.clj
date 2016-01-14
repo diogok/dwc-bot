@@ -134,15 +134,17 @@
 
 (defn run
   "Run the crawler in a single resource(dwca)"
-  [source]
+  [source rec]
    (log/info "->" source)
    (let [waiter (chan 1)
          batch  (batcher {:size (* 1 1024)
                           :fn (partial bulk-insert source)
                           :end waiter})]
      (try
-       (dwca/read-archive-stream source
-         (fn [occ] (>!! batch occ)))
+       (do
+         (dwca/read-archive-stream source
+           (fn [occ] (>!! batch occ)))
+         (put-resources [rec]))
        (catch Exception e
          (log/warn "Fail to read or process" source e)))
      (close! batch)
@@ -164,12 +166,11 @@
            (swap! status (fn [_] :active))
            (let [recs  (changed-resources)]
              (log/info "Got" (count recs) "resources")
-             (if (not (empty? recs)) (put-resources recs))
              (doseq [rec recs]
                (log/info "Resource" rec)
                (try
                  (when (and (= :active @status) (dwca/occurrences? (:dwca rec)))
-                   (run (:dwca rec)))
+                   (run (:dwca rec) rec))
                  (catch Exception e (log/warn "Exception runing" rec e)))))
            (swap! status (fn [_] :idle))
            (log/info "Will rest.")
