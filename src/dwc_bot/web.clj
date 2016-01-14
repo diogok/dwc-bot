@@ -14,6 +14,8 @@
 
   (:gen-class))
 
+(def proxy-path (or (env :proxy) ""))
+
 (defn result
   [data]
   {:result data
@@ -23,7 +25,7 @@
 (def routes
   {[:get "/"] 
      (fn [req]
-       {:status 302 :headers {"Location" "/index.html"}})
+       {:status 302 :headers {"Location" (str proxy-path "/index.html")}})
    [:get "/inputs"]
     (fn [req] (result (map #(.replace % "/rss.do" "") (db/get-inputs))))
    [:post "/inputs"]
