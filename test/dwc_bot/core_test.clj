@@ -20,11 +20,13 @@
     (let [rs (get-resources (first (get-inputs)))
           r0 (first rs)]
       #_"Uhm..."
+      (println r0)
     )))
 
 (fact "Can index occurrences"
-  (let [src "http://ipt.jbrj.gov.br/jbrj/archive.do?r=jbrj_w"]
-    (time (run src))
+  (let [src "http://ipt.jbrj.gov.br/jbrj/archive.do?r=jbrj_w"
+        rec (first (get-resources "http://ipt.jbrj.gov.br/jbrj"))]
+    (time (run src rec))
     (println "search")
     (count (time (search-all "jbrj_w"))) => 10121))
 
