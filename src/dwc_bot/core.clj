@@ -162,13 +162,14 @@
 (defn load-base-inputs
   "Load default sources from various config file"
   [] 
-  (let [etc   (io/file "/etc/biodiv/dwc-bot.list")
-        env   (io/file (or (env :sources) "sources.list"))
-        base  (io/file (io/resource "sources.list"))]
+  (let [env   (io/file (or (env :sources) "/etc/biodiv/sources.list"))
+        base  (io/resource "sources.list")]
     (if (.exists env)
-      (load-base-inputs-0 env)
-      (if (.exists etc)
-        (load-base-inputs-0 etc)
+      (do 
+        (log/info env)
+        (load-base-inputs-0 env))
+      (do
+        (log/info base)
         (load-base-inputs-0 base)))))
 
 (defn start 
