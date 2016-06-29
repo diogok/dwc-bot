@@ -10,7 +10,10 @@
   (:require [batcher.core :refer :all])
   (:require [clojure.core.async :refer [<! <!! >! >!! go go-loop chan close!]])
   (:require [clojure.java.io :as io])
+  (:require [environ.core :refer (env)])
   (:require [taoensso.timbre :as log]))
+
+(def status (atom :idle))
 
 (defn parse-date
   "Parse date from IPT RSS into a date object"
@@ -150,30 +153,48 @@
      (close! batch)
      (<!! waiter)))
 
+(defn load-base-inputs-0
+  "Load a config file list into a list"
+  [file] 
+  (with-open [rdr (io/reader file)]
+    (doall (line-seq rdr))))
+
+(defn load-base-inputs
+  "Load default sources from various config file"
+  [] 
+  (let [etc   (io/file "/etc/biodiv/dwc-bot.list")
+        env   (io/file (or (env :sources) "sources.list"))
+        base  (io/file (io/resource "sources.list"))]
+    (if (.exists env)
+      (load-base-inputs-0 env)
+      (if (.exists etc)
+        (load-base-inputs-0 etc)
+        (load-base-inputs-0 base)))))
+
 (defn start 
   "Keep on running the bot on all sources. 
    Return an status atom that can swap to :stop to stop the bot."
   [ & args ] 
    (connect)
-   (doseq [url base-inputs]
-     (put-input url))
-   (let [status (atom :idle)]
-     (future
-       (while
-         (and (not (nil? @status)) (not (= :stop @status)))
-         (do
-           (log/info "Bot Active")
-           (swap! status (fn [_] :active))
-           (let [recs  (changed-resources)]
-             (log/info "Got" (count recs) "resources")
-             (doseq [rec recs]
-               (log/info "Resource" rec)
-               (try
-                 (when (and (= :active @status) (dwca/occurrences? (:dwca rec)))
-                   (run (:dwca rec) rec))
-                 (catch Exception e (log/warn "Exception runing" rec e)))))
-           (swap! status (fn [_] :idle))
-           (log/info "Will rest.")
-           (Thread/sleep (* 30 60 1000)))))
-     status))
+   (let [base-inputs (load-base-inputs)]
+     (doseq [url base-inputs]
+       (put-input url)))
+   (future
+     (while
+       (and (not (nil? @status)) (not (= :stop @status)))
+       (do
+         (log/info "Bot Active")
+         (swap! status (fn [_] :active))
+         (let [recs  (changed-resources)]
+           (log/info "Got" (count recs) "resources")
+           (doseq [rec recs]
+             (log/info "Resource" rec)
+             (try
+               (when (and (= :active @status) (dwca/occurrences? (:dwca rec)))
+                 (run (:dwca rec) rec))
+               (catch Exception e (log/warn "Exception runing" rec e)))))
+         (swap! status (fn [_] :idle))
+         (log/info "Will rest.")
+         (Thread/sleep (* 30 60 1000)))))
+     status)
 

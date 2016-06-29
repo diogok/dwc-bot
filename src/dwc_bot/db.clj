@@ -10,13 +10,6 @@
 
 (def metafields ["identifier" "source" "hash" "timestamp"])
 
-(def base-inputs
-  [
-    "http://ipt.jbrj.gov.br/jbrj/"
-    "http://ipt.jbrj.gov.br/reflora/"
-    "http://ipt1.cria.org.br/ipt/"
-   ])
-
 (def fields
   (sort
     (filter 

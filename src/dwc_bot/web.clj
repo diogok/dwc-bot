@@ -26,6 +26,8 @@
   {[:get "/"] 
      (fn [req]
        {:status 302 :headers {"Location" (str proxy-path "/index.html")}})
+   [:get "/status"]
+     (fn [req] {:status 200 :body {:status @core/status}})
    [:get "/inputs"]
     (fn [req] (result (map #(.replace % "/rss.do" "") (db/get-inputs))))
    [:post "/inputs"]
