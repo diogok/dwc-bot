@@ -1,6 +1,6 @@
 (ns dwc-bot.core
   (:require [dwc-bot.db :refer :all])
-  (:require [clojure.java.jdbc :refer [insert! delete! execute! query with-db-connection with-db-transaction]])
+  (:require [clojure.java.jdbc :refer [insert! insert-multi! delete! execute! query with-db-connection with-db-transaction]])
   (:require [clojure.data.xml :as xml])
   (:require [dwc-io.archive :as dwca]
             [dwc-io.fixes :as fixes])
@@ -132,7 +132,7 @@
              (when-not (empty? to-del-ids)
                (delete! c :occurrences [(in-f :identifier to-del-ids)]))
              (when-not (empty? new-occs)
-               (apply insert! c :occurrences new-occs)))))
+               (insert-multi! c :occurrences new-occs)))))
          (catch Exception e (log/warn e)))))
 
 (defn run

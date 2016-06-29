@@ -1,7 +1,7 @@
 (ns dwc-bot.db
   (:require [dwc-io.validation :as valid]
             [dwc-io.fixes :as fixes])
-  (:require [clojure.java.jdbc :refer [insert! delete! execute! query with-db-connection with-db-transaction]])
+  (:require [clojure.java.jdbc :refer [insert! insert-multi! delete! execute! query with-db-connection with-db-transaction]])
   (:require [clojure.java.io :as io])
   (:require [taoensso.timbre :as log])
   (:require [environ.core :refer (env)]))
@@ -40,6 +40,7 @@
         (def conn {:classname "org.sqlite.JDBC" :subprotocol "sqlite" :subname (.getAbsolutePath db-file)})
         (when-not (.exists db-file)
           (do
+            (log/info "Creating DB")
             (execute! conn 
               [(str "CREATE VIRTUAL TABLE occurrences USING fts4(" (apply str (interpose " , " (apply conj fields metafields))) ")")])
             (execute! conn
@@ -63,14 +64,17 @@
 (defn get-inputs
   "Get the input URLS from the DB"
   [] 
-  (distinct
-    (map
-      (fn [url]
-        (-> url 
-            (.trim)
-            (str "/rss.do")
-            (.replace "//rss" "/rss")))
-      (query conn ["SELECT url FROM input;"] :row-fn :url))))
+   (with-db-connection [cc conn]
+    (execute! cc ["PRAGMA synchronous = OFF"])
+    (query    cc ["PRAGMA journal_mode = WAL"])
+    (distinct
+      (map
+        (fn [url]
+          (-> url 
+              (.trim)
+              (str "/rss.do")
+              (.replace "//rss" "/rss")))
+        (query cc ["SELECT url FROM input;"] {:row-fn :url})))))
 
 (defn db-resources
   "List resources from DB"
@@ -92,13 +96,13 @@
    (try
      (with-db-transaction [c cc]
        (delete! c :resources [(in-f-0 :link recs)])
-       (apply insert! c :resources recs))
+       (insert-multi! c :resources recs))
      (catch Exception e (log/warn "Problem inserting resources" e)))))
 
 (defn find-hashes-0
   "Find the hashes for the occurrences"
   [c occs] 
-   (query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash occs))] :row-fn :hash))
+   (query c [(str "SELECT hash FROM occurrences WHERE " (in-f :hash occs))] { :row-fn :hash }))
 
 (defn find-hashes
   "Find the hashes for the occurrences"
@@ -108,7 +112,7 @@
 (defn find-ids-0
   "Return identifiers for given occurrences"
   [c occs] 
-   (query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier occs))] :row-fn :identifier))
+   (query c [(str "SELECT identifier FROM occurrences WHERE " (in-f :identifier occs))] { :row-fn :identifier }))
 
 (defn find-ids
   "Return a set of identifiers for given occurrences"
@@ -120,7 +124,7 @@
  [q] 
   (query conn
      ["SELECT * FROM occurrences WHERE occurrences MATCH ?" q]
-     :row-fn fixes/-fix->))
+     { :row-fn fixes/-fix-> }))
 
 (defn search
   "Search using a query string, and possible start and limit"
@@ -129,7 +133,7 @@
  ([q start limit] 
   (query conn
      ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT ? OFFSET ?" q limit start]
-     :row-fn fixes/-fix->)))
+     { :row-fn fixes/-fix-> })))
 
 (defn search-filtered
   "Search with filters (a hashmap of field=>value) and possible start and limit"
@@ -140,5 +144,5 @@
     ["SELECT * FROM occurrences WHERE occurrences MATCH ? LIMIT ? OFFSET ?"
      (apply str (interpose " AND " (map #(str (key %) ":" (val %)) (into {} (filter second filters)))))
      limit start])
-   :row-fn fixes/-fix->))
+   { :row-fn fixes/-fix-> }))
 
