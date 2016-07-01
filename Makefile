@@ -2,8 +2,8 @@ all: build
 
 build:
 	lein uberjar
-	docker build -t diogok/dwc-services .
+	docker build -t diogok/dwc-bot .
 
 push:
-	docker push diogok/dwc-services
+	docker push diogok/dwc-bot
 

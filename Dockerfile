@@ -7,5 +7,5 @@ CMD ["java","-server","-DDATA_DIR=/var/data/dwc-bot","-XX:+UseConcMarkSweepGC","
 VOLUME /var/data/dwc-bot
 EXPOSE 80
 
-ADD target/dwc-bot-0.0.4-standalone.jar /opt/dwc-bot.jar
+ADD target/dwc-bot-0.0.5-standalone.jar /opt/dwc-bot.jar
 

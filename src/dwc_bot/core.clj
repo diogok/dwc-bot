@@ -18,7 +18,10 @@
 (defn parse-date
   "Parse date from IPT RSS into a date object"
   [date]
-  (f/parse (f/with-locale (f/formatters :rfc822) (java.util.Locale. "en")) date))
+  (try
+    (f/parse (f/with-locale (f/formatters :rfc822) (java.util.Locale. "en")) date)
+    (catch Exception e
+      (f/parse (f/with-locale (f/formatters :rfc822) (java.util.Locale. "pt")) date))))
 
 (defn date-to-timestamp
   "Format a date object as timestamp"
